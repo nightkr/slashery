@@ -1,0 +1,5 @@
+#+TITLE: Slashery
+
+Framework on top of Serenity for Discord bots that use slash commands.
+
+Mostly intended for personal use.
