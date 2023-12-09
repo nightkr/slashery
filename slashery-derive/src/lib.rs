@@ -105,6 +105,7 @@ pub fn derive_slash_cmd(item: TokenStream1) -> TokenStream1 {
                         description: #description.to_string(),
                         kind: <#ty as ::slashery::SlashArg>::arg_discord_type(),
                         required: <#ty as ::slashery::SlashArg>::arg_required(),
+                        choices: <#ty as ::slashery::SlashArg>::arg_choices(),
                     },
                 },
                 quote! {

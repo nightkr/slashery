@@ -1,7 +1,7 @@
 use serde::Serialize;
 use serde_repr::Serialize_repr;
 use serenity::model::application::{
-    command::CommandOptionType as ApplicationCommandOptionType,
+    command::{CommandOptionChoice, CommandOptionType as ApplicationCommandOptionType},
     interaction::application_command::{
         ApplicationCommandInteraction, CommandDataOption as ApplicationCommandInteractionDataOption,
     },
@@ -66,6 +66,9 @@ pub trait SlashArg: Sized {
     ) -> Result<Self, ArgFromInteractionError>;
     fn arg_discord_type() -> ApplicationCommandOptionType;
     fn arg_required() -> bool;
+    fn arg_choices() -> Vec<CommandOptionChoice> {
+        Vec::new()
+    }
 }
 
 impl SlashArg for String {
@@ -147,4 +150,5 @@ pub struct SlashArgMeta {
     #[serde(rename = "type")]
     pub kind: ApplicationCommandOptionType,
     pub required: bool,
+    pub choices: Vec<CommandOptionChoice>,
 }
