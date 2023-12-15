@@ -2,11 +2,15 @@ use serde::Serialize;
 use serde_repr::Serialize_repr;
 use serenity::model::application::{
     command::{CommandOptionChoice, CommandOptionType as ApplicationCommandOptionType},
-    interaction::application_command::{
-        ApplicationCommandInteraction, CommandDataOption as ApplicationCommandInteractionDataOption,
+    interaction::{
+        application_command::{
+            ApplicationCommandInteraction,
+            CommandDataOption as ApplicationCommandInteractionDataOption,
+        },
+        message_component::MessageComponentInteraction,
     },
 };
-pub use slashery_derive::{SlashCmd, SlashCmds};
+pub use slashery_derive::{SlashCmd, SlashCmds, SlashComponents};
 use snafu::Snafu;
 
 #[derive(Debug, Snafu)]
@@ -39,6 +43,11 @@ pub enum ArgFromInteractionError {
         got: serde_json::Value,
     },
     FieldNotFound,
+}
+
+#[derive(Debug, Snafu)]
+pub enum ComponentsFromInteractionError {
+    UnknownComponent { id: String },
 }
 
 pub trait SlashCmds: Sized {
@@ -151,4 +160,12 @@ pub struct SlashArgMeta {
     pub kind: ApplicationCommandOptionType,
     pub required: bool,
     pub choices: Vec<CommandOptionChoice>,
+}
+
+pub trait SlashComponents: Sized {
+    fn from_interaction(
+        interaction: &MessageComponentInteraction,
+    ) -> Result<Self, ComponentsFromInteractionError>;
+
+    fn component_id(&self) -> &'static str;
 }

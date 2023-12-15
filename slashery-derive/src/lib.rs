@@ -1,12 +1,15 @@
 use darling::{
     ast::{Data, Fields},
     util::Ignored,
-    FromDeriveInput, FromField, FromVariant,
+    FromDeriveInput, FromField, FromMeta, FromVariant,
 };
 use proc_macro::TokenStream as TokenStream1;
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
-use syn::{parse::Parse, parse_macro_input, Attribute, LitStr, Path, Token, Type};
+use syn::{
+    parse::Parse, parse_macro_input, punctuated::Punctuated, Attribute, Lit, LitStr, NestedMeta,
+    Path, Token, Type,
+};
 
 #[derive(FromDeriveInput)]
 #[darling(forward_attrs, attributes(slashery))]
@@ -41,6 +44,39 @@ struct SlashCmdsCmd {
 #[derive(FromField)]
 struct SlashCmdsCmdField {
     ty: Type,
+}
+
+#[derive(FromDeriveInput)]
+struct SlashComponents {
+    ident: Ident,
+    data: Data<SlashComponentsComponent, Ignored>,
+}
+
+#[derive(FromVariant)]
+#[darling(attributes(slashery))]
+struct SlashComponentsComponent {
+    ident: Ident,
+    #[darling(default)]
+    id_alias: StrList,
+}
+
+#[derive(Default)]
+struct StrList {
+    values: Vec<String>,
+}
+
+impl FromMeta for StrList {
+    fn from_list(items: &[syn::NestedMeta]) -> darling::Result<Self> {
+        Ok(StrList {
+            values: items
+                .iter()
+                .map(|item| match item {
+                    NestedMeta::Lit(Lit::Str(s)) => Ok(s.value()),
+                    _ => panic!(),
+                })
+                .collect::<darling::Result<Vec<String>>>()?,
+        })
+    }
 }
 
 struct DocAttrTokens {
@@ -191,6 +227,68 @@ pub fn derive_slash_cmds(item: TokenStream1) -> TokenStream1 {
             ) -> Result<Self, ::slashery::CmdsFromInteractionError> {
                 #cmd_from_interactions {
                     Err(::slashery::CmdsFromInteractionError::UnknownCmd { name: interaction.data.name.to_string() })
+                }
+            }
+        }
+    })
+    .into()
+}
+
+#[proc_macro_derive(SlashComponents, attributes(slashery))]
+pub fn derive_slash_components(item: TokenStream1) -> TokenStream1 {
+    let SlashComponents { ident, data } =
+        match SlashComponents::from_derive_input(&parse_macro_input!(item)) {
+            Ok(x) => x,
+            Err(err) => return err.write_errors().into(),
+        };
+    let data = data.take_enum().unwrap();
+    let components_from_interactions = data
+        .iter()
+        .map(
+            |SlashComponentsComponent {
+                 ident: variant_ident,
+                 id_alias,
+             }| {
+                let id_match = [variant_ident.to_string()]
+                    .iter() //std::iter::once(variant_ident.to_string())
+                    .chain(id_alias.values.iter()) //.map(LitStr::value))
+                    .map(|id| quote! { interaction.data.custom_id == #id })
+                    .collect::<Punctuated<TokenStream, Token![||]>>();
+                quote! {
+                    if #id_match {
+                        Ok(Self::#variant_ident)
+                    } else
+                }
+            },
+        )
+        .collect::<TokenStream>();
+    let component_id_match = data
+        .iter()
+        .map(
+            |SlashComponentsComponent {
+                 ident: variant_ident,
+                 ..
+             }| {
+                let id = variant_ident.to_string();
+                quote! { Self::#variant_ident => #id, }
+            },
+        )
+        .collect::<TokenStream>();
+    (quote! {
+        impl ::slashery::SlashComponents for #ident {
+            fn from_interaction(
+                interaction: &MessageComponentInteraction,
+            ) -> Result<Self, ::slashery::ComponentsFromInteractionError> {
+                #components_from_interactions {
+                    Err(::slashery::ComponentsFromInteractionError::UnknownComponent {
+                        id: interaction.data.custom_id.to_string(),
+                    })
+                }
+            }
+
+            fn component_id(&self) -> &'static str {
+                match self {
+                    #component_id_match
                 }
             }
         }
