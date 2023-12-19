@@ -34,14 +34,21 @@ pub enum CmdFromInteractionError {
 
 #[derive(Debug, Snafu)]
 pub enum ArgFromInteractionError {
+    #[snafu(display("invalid type: expected {expected:?} but got {got:?}"))]
     InvalidType {
         expected: ApplicationCommandOptionType,
         got: ApplicationCommandOptionType,
     },
+    #[snafu(display(
+        "invalid value: got value {got:?}: {message:?}",
+        message = message.clone().unwrap_or_else(|| format!("expected value of type {expected:?}"))
+    ))]
     InvalidValueForType {
         expected: ApplicationCommandOptionType,
         got: serde_json::Value,
+        message: Option<String>,
     },
+    #[snafu(display("required field not found"))]
     FieldNotFound,
 }
 
@@ -94,6 +101,7 @@ impl SlashArg for String {
                     ArgFromInteractionError::InvalidValueForType {
                         expected: ApplicationCommandOptionType::String,
                         got: value,
+                        message: None,
                     },
                 )?)
             } else {
