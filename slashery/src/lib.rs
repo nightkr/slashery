@@ -15,17 +15,18 @@ use snafu::Snafu;
 
 #[derive(Debug, Snafu)]
 pub enum CmdsFromInteractionError {
+    #[snafu(display("failed to parse command {name:?}"))]
     Cmd {
         source: CmdFromInteractionError,
         name: String,
     },
-    UnknownCmd {
-        name: String,
-    },
+    #[snafu(display("unknown command {name:?}"))]
+    UnknownCmd { name: String },
 }
 
 #[derive(Debug, Snafu)]
 pub enum CmdFromInteractionError {
+    #[snafu(display("failed to parse argument {name:?}"))]
     Arg {
         source: ArgFromInteractionError,
         name: String,
