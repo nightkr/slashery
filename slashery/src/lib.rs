@@ -13,6 +13,8 @@ use serenity::model::application::{
 pub use slashery_derive::{SlashCmd, SlashCmds, SlashComponents};
 use snafu::Snafu;
 
+use std::convert::TryFrom;
+
 #[derive(Debug, Snafu)]
 pub enum CmdsFromInteractionError {
     #[snafu(display("failed to parse command {name:?}"))]
@@ -118,6 +120,43 @@ impl SlashArg for String {
 
     fn arg_discord_type() -> ApplicationCommandOptionType {
         ApplicationCommandOptionType::String
+    }
+
+    fn arg_required() -> bool {
+        true
+    }
+}
+
+impl SlashArg for i32 {
+    fn arg_parse(
+        arg: Option<&ApplicationCommandInteractionDataOption>,
+    ) -> Result<Self, ArgFromInteractionError> {
+        if let Some(arg) = arg {
+            if arg.kind == ApplicationCommandOptionType::Integer {
+                let value = arg
+                    .value
+                    .clone()
+                    .ok_or(ArgFromInteractionError::FieldNotFound)?;
+                Ok(value.as_i64().and_then(|v| i32::try_from(v).ok()).ok_or(
+                    ArgFromInteractionError::InvalidValueForType {
+                        expected: ApplicationCommandOptionType::Integer,
+                        got: value,
+                        message: None,
+                    },
+                )?)
+            } else {
+                Err(ArgFromInteractionError::InvalidType {
+                    expected: ApplicationCommandOptionType::String,
+                    got: arg.kind,
+                })
+            }
+        } else {
+            Err(ArgFromInteractionError::FieldNotFound)
+        }
+    }
+
+    fn arg_discord_type() -> ApplicationCommandOptionType {
+        ApplicationCommandOptionType::Integer
     }
 
     fn arg_required() -> bool {
